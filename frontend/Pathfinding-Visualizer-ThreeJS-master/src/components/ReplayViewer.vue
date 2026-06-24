@@ -63,7 +63,7 @@
             </div>
             <div>
               <span>运行步数</span>
-              <strong>{{ frameValue('runtime.movementSteps', 0) }}</strong>
+              <strong>{{ movementSteps }}</strong>
             </div>
             <div>
               <span>车辆数量</span>
@@ -175,6 +175,10 @@ export default {
       const cells = map.cells || []
       if (!cells.length) return 0
       return cells.filter((cell) => cell.state !== 'UNKNOWN').length / cells.length * 100
+    },
+    movementSteps() {
+      const recorded = Number(this.frameValue('runtime.movementSteps', 0))
+      return recorded > 0 ? recorded : this.estimatedMovementSteps(this.currentIndex)
     },
     frameTime() {
       if (!this.currentFrame.timestamp) return '00:00'
@@ -290,6 +294,34 @@ export default {
         result !== null && result !== undefined ? result[key] : undefined
       ), source)
       return value === undefined || value === null ? fallback : value
+    },
+    estimatedMovementSteps(frameIndex) {
+      let total = 0
+      for (let index = 1; index <= frameIndex; index += 1) {
+        const previous = this.vehiclePositionsById(this.frames[index - 1])
+        const current = this.vehiclePositionsById(this.frames[index])
+        Object.keys(current).forEach((vehicleId) => {
+          if (previous[vehicleId] && previous[vehicleId] !== current[vehicleId]) total += 1
+        })
+      }
+      return total
+    },
+    vehiclePositionsById(frame) {
+      const snapshot = (frame && frame.snapshot) || {}
+      const vehicles = Array.isArray(snapshot.vehicles)
+        ? snapshot.vehicles
+        : Object.values(snapshot.vehicles || {})
+      return vehicles.reduce((positions, vehicle) => {
+        const point = (vehicle.pose && vehicle.pose.position) || vehicle.position
+        if (!point) return positions
+        const x = Array.isArray(point) ? point[0] : point.x
+        const y = Array.isArray(point) ? point[1] : point.y
+        const vehicleId = vehicle.vehicleId || vehicle.id
+        if (vehicleId !== undefined && Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {
+          positions[vehicleId] = `${Number(x)},${Number(y)}`
+        }
+        return positions
+      }, {})
     },
     drawFrame() {
       const canvas = this.$refs.mapCanvas

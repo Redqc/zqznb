@@ -18,6 +18,7 @@ from .state import (
     snapshot_map_cursor,
     snapshot_with_runtime,
 )
+from .workers.common import reset_runtime_movement_steps
 
 
 websockets: set[WebSocket] = set()
@@ -57,6 +58,9 @@ async def apply_ws_control(message: dict[str, Any]) -> None:
             configure_navigator_algorithm(str(message["navigatorAlgorithm"]))
         simulation.ensure_demo_vehicles()
         blackboard.reset_perception_map_locked(reveal_obstacles=False)
+        simulation.tick = 0
+        simulation.movement_steps = 0
+        reset_runtime_movement_steps(blackboard)
         blackboard.set_system_status("RUNNING")
         replay_store.start("websocket", runtime_state(), snapshot_with_runtime())
     elif action == "pause":
@@ -73,6 +77,7 @@ async def apply_ws_control(message: dict[str, Any]) -> None:
         blackboard.set_system_status("RESET")
         simulation.tick = 0
         simulation.movement_steps = 0
+        reset_runtime_movement_steps(blackboard)
         simulation.ensure_demo_vehicles()
 
 

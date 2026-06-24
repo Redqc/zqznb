@@ -13,6 +13,7 @@ from ..state import (
     simulation,
     snapshot_with_runtime,
 )
+from ..workers.common import reset_runtime_movement_steps
 
 
 router = APIRouter()
@@ -30,6 +31,9 @@ async def control_start(
         configure_navigator_algorithm(str(payload["navigatorAlgorithm"]))
     simulation.ensure_demo_vehicles()
     blackboard.reset_perception_map_locked(reveal_obstacles=False)
+    simulation.tick = 0
+    simulation.movement_steps = 0
+    reset_runtime_movement_steps(blackboard)
     result = blackboard.set_system_status("RUNNING")
     snapshot = snapshot_with_runtime()
     replay_store.start(request.state.user["username"], runtime_state(), snapshot)
@@ -61,5 +65,6 @@ async def control_reset() -> dict[str, Any]:
     result = blackboard.set_system_status("RESET")
     simulation.tick = 0
     simulation.movement_steps = 0
+    reset_runtime_movement_steps(blackboard)
     simulation.ensure_demo_vehicles()
     return result

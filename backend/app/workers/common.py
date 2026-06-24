@@ -96,6 +96,28 @@ def persist_runtime_config(blackboard: RedisBlackboard, config: SimulationConfig
     )
 
 
+def read_runtime_movement_steps(blackboard: RedisBlackboard, default: int = 0) -> int:
+    raw = blackboard.redis.hget(blackboard.key(RUNTIME_HASH), "movementSteps")
+    return _runtime_int(raw, default)
+
+
+def increment_runtime_movement_steps(blackboard: RedisBlackboard, amount: int) -> int:
+    steps = int(amount)
+    if steps <= 0:
+        return read_runtime_movement_steps(blackboard)
+    return int(blackboard.redis.hincrby(blackboard.key(RUNTIME_HASH), "movementSteps", steps))
+
+
+def reset_runtime_movement_steps(blackboard: RedisBlackboard) -> None:
+    blackboard.redis.hset(
+        blackboard.key(RUNTIME_HASH),
+        mapping={
+            "movementSteps": "0",
+            "updatedAt": str(now_ms()),
+        },
+    )
+
+
 def _runtime_int(value: Any, default: int) -> int:
     try:
         return int(value)

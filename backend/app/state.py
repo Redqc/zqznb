@@ -9,7 +9,12 @@ from .config import simulation_config_from_env
 from .controller.policies import create_assignment_policy
 from .redis import AuthStore, RedisBlackboard, ReplayStore, now_ms, redis_config_from_env
 from .simulation import SimulationEngine
-from .workers.common import env_bool, env_float, persist_runtime_config
+from .workers.common import (
+    env_bool,
+    env_float,
+    persist_runtime_config,
+    read_runtime_movement_steps,
+)
 
 
 redis_config = redis_config_from_env()
@@ -137,6 +142,10 @@ def active_navigator_heartbeats() -> list[dict[str, Any]]:
 
 def runtime_state() -> dict[str, Any]:
     navigator_heartbeats = active_navigator_heartbeats()
+    movement_steps = max(
+        int(getattr(simulation, "movement_steps", 0) or 0),
+        read_runtime_movement_steps(blackboard, 0),
+    )
     return {
         "map": {
             "width": blackboard.width,
@@ -153,7 +162,7 @@ def runtime_state() -> dict[str, Any]:
         "navigatorHeartbeats": navigator_heartbeats,
         "vehicleDeployment": simulation.vehicle_deployment,
         "tick": simulation.tick,
-        "movementSteps": simulation.movement_steps,
+        "movementSteps": movement_steps,
         "scanRadius": simulation.config.scan_radius,
         "useStAstar": simulation.config.use_st_astar,
         "stAstarHorizon": simulation.config.st_astar_horizon,

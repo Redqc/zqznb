@@ -271,7 +271,14 @@ class SimulationEngine:
         self.blackboard.reset_perception_map_locked()
         self.tick = 0
         self.movement_steps = 0
+        self._reset_shared_movement_steps()
         self.ensure_demo_vehicles()
+
+    def _reset_shared_movement_steps(self) -> None:
+        redis_client = getattr(self.blackboard, "redis", None)
+        key = getattr(self.blackboard, "key", None)
+        if redis_client is not None and callable(key):
+            redis_client.hset(key("runtime"), "movementSteps", "0")
 
     def step(self) -> None:
         with self.blackboard.batch():

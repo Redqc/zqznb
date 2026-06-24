@@ -9,6 +9,7 @@ from .common import (
     create_blackboard,
     env_int,
     heartbeat,
+    increment_runtime_movement_steps,
     read_runtime_config,
     should_run,
     worker_interval,
@@ -42,15 +43,22 @@ def run_fleet_once(blackboard, robot: RobotComponent) -> None:
             publish_all_vehicle_heartbeats(blackboard, force=True)
             return
         steps_per_tick = max(1, min(8, env_int("ROBOT_STEPS_PER_TICK", 1)))
+        moves = 0
         if robot.uses_low_level_mdp:
             for _ in range(steps_per_tick):
-                if robot.run_low_level_mdp_once() <= 0:
+                step_moves = robot.run_low_level_mdp_once()
+                moves += step_moves
+                if step_moves <= 0:
                     break
         else:
             for _ in range(steps_per_tick):
-                if robot.run_once() <= 0:
+                step_moves = robot.run_once()
+                moves += step_moves
+                if step_moves <= 0:
                     break
         publish_all_vehicle_heartbeats(blackboard)
+    if moves:
+        increment_runtime_movement_steps(blackboard, moves)
 
 
 def run_vehicle_once(blackboard, robot: RobotComponent, vehicle_id: str) -> None:
@@ -59,15 +67,22 @@ def run_vehicle_once(blackboard, robot: RobotComponent, vehicle_id: str) -> None
             publish_all_vehicle_heartbeats(blackboard, force=True)
             return
         steps_per_tick = max(1, min(8, env_int("ROBOT_STEPS_PER_TICK", 1)))
+        moves = 0
         if robot.uses_low_level_mdp:
             for _ in range(steps_per_tick):
-                if robot.run_low_level_mdp_vehicle_once(vehicle_id) <= 0:
+                step_moves = robot.run_low_level_mdp_vehicle_once(vehicle_id)
+                moves += step_moves
+                if step_moves <= 0:
                     break
         else:
             for _ in range(steps_per_tick):
-                if robot.run_vehicle_once(vehicle_id) <= 0:
+                step_moves = robot.run_vehicle_once(vehicle_id)
+                moves += step_moves
+                if step_moves <= 0:
                     break
         publish_all_vehicle_heartbeats(blackboard)
+    if moves:
+        increment_runtime_movement_steps(blackboard, moves)
 
 
 def main() -> None:
