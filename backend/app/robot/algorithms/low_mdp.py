@@ -90,6 +90,11 @@ class LowLevelMDPAlgorithm:
             return start
 
         cell_map = {(int(cell["x"]), int(cell["y"])): cell for cell in snapshot["map"]["cells"]}
+        occupied = {
+            point_tuple(other["pose"]["position"])
+            for other in snapshot.get("vehicles", [])
+            if other.get("vehicleId") != vehicle.get("vehicleId") and other.get("pose")
+        }
         rewards = {
             state: float(
                 unknown_cells_visible_from(
@@ -130,6 +135,8 @@ class LowLevelMDPAlgorithm:
                 continue
             if candidate != start and candidate in selected_next:
                 continue
+            if candidate != start and candidate in occupied:
+                continue
             if (candidate, start) in selected_edges:
                 continue
             if self.blackboard.is_truth_blocked({"x": candidate[0], "y": candidate[1]}):
@@ -165,6 +172,11 @@ class LowLevelMDPAlgorithm:
         cell_map = {(int(cell["x"]), int(cell["y"])): cell for cell in snapshot["map"]["cells"]}
         width = int(snapshot["map"]["width"])
         height = int(snapshot["map"]["height"])
+        occupied = {
+            point_tuple(vehicle["pose"]["position"])
+            for vehicle in snapshot.get("vehicles", [])
+            if vehicle.get("pose") and point_tuple(vehicle["pose"]["position"]) != start
+        }
         queue: list[tuple[int, int]] = [start]
         parents: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
 
@@ -188,6 +200,8 @@ class LowLevelMDPAlgorithm:
                 if not (0 <= neighbor[0] < width and 0 <= neighbor[1] < height):
                     continue
                 if neighbor in selected_next:
+                    continue
+                if neighbor in occupied:
                     continue
                 cell = cell_map.get(neighbor)
                 state = cell.get("state", "UNKNOWN") if cell else "UNKNOWN"

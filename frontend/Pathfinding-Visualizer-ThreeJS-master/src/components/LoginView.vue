@@ -75,14 +75,14 @@ export default {
 .login-page {
   display: grid;
   min-height: 100%;
-  grid-template-columns: minmax(360px, 1.15fr) minmax(340px, 0.85fr);
+  grid-template-columns: minmax(400px, 1.15fr) minmax(340px, 0.85fr);
   color: #fff;
   background: #17282c;
 }
 
 .login-intro {
   display: flex;
-  max-width: 760px;
+  max-width: 800px;
   justify-content: center;
   flex-direction: column;
   padding: clamp(40px, 8vw, 120px);
@@ -96,12 +96,13 @@ export default {
 }
 
 h1 {
-  max-width: 680px;
+  max-width: 780px;
   margin: 0;
   font-size: clamp(42px, 6vw, 72px);
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .login-intro > p {

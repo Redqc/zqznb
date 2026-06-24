@@ -611,8 +611,9 @@ class Blackboard:
         self.heartbeats = {}
         self.system_status = "STOPPED"
 
-    def reset_perception_map_locked(self) -> int:
-        return self._apply_obstacles_to_map_locked(self.true_obstacles)
+    def reset_perception_map_locked(self, *, reveal_obstacles: bool = True) -> int:
+        obstacles = self.true_obstacles if reveal_obstacles else set()
+        return self._apply_obstacles_to_map_locked(obstacles)
 
     def _apply_obstacles_to_map_locked(self, obstacles: set[tuple[int, int]]) -> int:
         changed = 0
@@ -874,6 +875,15 @@ class Blackboard:
 
     def register_vehicle(self, vehicle_id: str, pose: dict[str, Any]) -> dict[str, Any]:
         with self.lock:
+            position = pose.get("position", {})
+            point = (int(position.get("x", -1)), int(position.get("y", -1)))
+            if not self._point_in_bounds(point):
+                raise ValueError("vehicle position is outside the map")
+            if point in self.true_obstacles:
+                raise ValueError("vehicle position is blocked")
+            occupying_vehicle = self._vehicle_at_position_locked(point, exclude_vehicle_id=vehicle_id)
+            if occupying_vehicle is not None:
+                raise ValueError(f"vehicle position is occupied by {occupying_vehicle}")
             state = {
                 "vehicleId": vehicle_id,
                 "pose": pose,
@@ -895,11 +905,35 @@ class Blackboard:
             vehicle_id = data["vehicleId"]
             current = self.vehicles.get(vehicle_id, {})
             current.update(data)
+            position = current.get("pose", {}).get("position")
+            if isinstance(position, dict):
+                point = (int(position.get("x", -1)), int(position.get("y", -1)))
+                occupying_vehicle = self._vehicle_at_position_locked(point, exclude_vehicle_id=vehicle_id)
+                if occupying_vehicle is not None:
+                    raise ValueError(f"vehicle position is occupied by {occupying_vehicle}")
             current["updatedAt"] = data.get("updatedAt", now_ms())
             self.vehicles[vehicle_id] = current
             status = "BUSY" if current.get("status") in {"MOVING", "SCANNING"} else "READY"
             self.update_heartbeat(vehicle_id, "ROBOT", status, current.get("currentTaskId"))
             return copy.deepcopy(current)
+
+    def _vehicle_at_position_locked(
+        self,
+        point: tuple[int, int],
+        *,
+        exclude_vehicle_id: str | None = None,
+    ) -> str | None:
+        for vehicle in self.vehicles.values():
+            vehicle_id = str(vehicle.get("vehicleId", ""))
+            if exclude_vehicle_id is not None and vehicle_id == exclude_vehicle_id:
+                continue
+            position = vehicle.get("pose", {}).get("position", {})
+            if (
+                int(position.get("x", -1)) == point[0]
+                and int(position.get("y", -1)) == point[1]
+            ):
+                return vehicle_id
+        return None
 
     def update_heartbeat(
         self,
@@ -1074,10 +1108,13 @@ class Blackboard:
         for task in self.tasks.values():
             if (
                 task.get("frontierId") != frontier_id
-                or task.get("status") != "PENDING"
+                or task.get("status") in {"DONE", "FAILED", "CANCELLED"}
             ):
                 continue
             task["status"] = "CANCELLED"
+            task["pathQueue"] = []
+            task["planId"] = None
+            task["currentStepIndex"] = 0
             task["updatedAt"] = now_ms()
             vehicle = self.vehicles.get(task.get("vehicleId"))
             if vehicle and vehicle.get("currentTaskId") == task.get("taskId"):

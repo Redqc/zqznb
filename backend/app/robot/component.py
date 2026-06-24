@@ -78,7 +78,10 @@ class RobotComponent:
         next_step = path[next_index]
         next_position = next_step["position"]
         current_position = vehicle["pose"]["position"]
-        if self.blackboard.is_truth_blocked(next_position):
+        if self.blackboard.is_truth_blocked(next_position) or self.vehicle_at_position(
+            next_position,
+            exclude_vehicle_id=vehicle_id,
+        ):
             self.scan_and_upload(vehicle_id)
             self.blackboard.report_blocked(vehicle_id, task["taskId"], next_position)
             return 0
@@ -93,7 +96,12 @@ class RobotComponent:
             "battery": max(0, int(vehicle.get("battery", 100)) - 1),
             "updatedAt": now_ms(),
         }
-        self.blackboard.update_vehicle_state(updated)
+        try:
+            self.blackboard.update_vehicle_state(updated)
+        except ValueError:
+            self.scan_and_upload(vehicle_id)
+            self.blackboard.report_blocked(vehicle_id, task["taskId"], next_position)
+            return 0
         self.blackboard.mark_task_progress(task["taskId"], next_index)
         self.scan_and_upload(vehicle_id)
         return 1 if next_position != current_position else 0
@@ -130,10 +138,25 @@ class RobotComponent:
             "battery": max(0, int(vehicle.get("battery", 100)) - (0 if next_cell == current else 1)),
             "updatedAt": now_ms(),
         }
-        self.blackboard.update_vehicle_state(updated)
+        try:
+            self.blackboard.update_vehicle_state(updated)
+        except ValueError:
+            self.scan_and_upload(vehicle_id)
+            return 0
         self.scan_and_upload(vehicle_id)
         self.blackboard.update_vehicle_state({**updated, "status": "IDLE"})
         return 1 if next_cell != current else 0
+
+    def vehicle_at_position(self, position: dict[str, int], *, exclude_vehicle_id: str | None = None) -> bool:
+        target = (int(position["x"]), int(position["y"]))
+        snapshot = self.blackboard.snapshot_view()
+        for vehicle in snapshot.get("vehicles", []):
+            if exclude_vehicle_id is not None and vehicle.get("vehicleId") == exclude_vehicle_id:
+                continue
+            other_position = vehicle.get("pose", {}).get("position", {})
+            if (int(other_position.get("x", -1)), int(other_position.get("y", -1))) == target:
+                return True
+        return False
 
     def scan_and_upload(self, vehicle_id: str, *, detect_frontiers: bool | None = None) -> None:
         self.frontier_scan.scan_and_upload(vehicle_id, detect_frontiers=detect_frontiers)
