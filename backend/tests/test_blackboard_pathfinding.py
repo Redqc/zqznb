@@ -255,6 +255,31 @@ def test_vehicle_redeployment_clears_previous_visible_area():
     assert all(cell_map[point]["state"] == "UNKNOWN" for point in stale_visible)
 
 
+def test_vehicle_count_adjustment_preserves_discovered_map():
+    board = Blackboard(width=10, height=8)
+    simulation = SimulationEngine(board, config=SimulationConfig(scan_radius=2))
+
+    simulation.configure_vehicle_deployment(count=2, mode="adjust")
+    first_vehicle = board.snapshot()["vehicles"][0]
+    simulation.scan_and_upload(first_vehicle["vehicleId"], detect_frontiers=False)
+
+    before = {
+        (cell["x"], cell["y"]): cell["state"]
+        for cell in board.snapshot()["map"]["cells"]
+        if cell["state"] != "UNKNOWN"
+    }
+    assert before
+
+    simulation.configure_vehicle_deployment(count=1, mode="adjust")
+
+    after = {
+        (cell["x"], cell["y"]): cell["state"]
+        for cell in board.snapshot()["map"]["cells"]
+        if (cell["x"], cell["y"]) in before
+    }
+    assert after == before
+
+
 def test_vehicle_scan_does_not_reveal_cells_behind_obstacle():
     board = Blackboard(width=7, height=5)
     simulation = SimulationEngine(board, config=SimulationConfig(scan_radius=3))

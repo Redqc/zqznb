@@ -30,6 +30,8 @@ async def control_start(
     if payload.get("navigatorAlgorithm"):
         configure_navigator_algorithm(str(payload["navigatorAlgorithm"]))
     simulation.ensure_demo_vehicles()
+    if blackboard.system_status == "PAUSED":
+        return blackboard.set_system_status("RUNNING")
     blackboard.reset_perception_map_locked(reveal_obstacles=False)
     simulation.tick = 0
     simulation.movement_steps = 0

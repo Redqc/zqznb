@@ -42,7 +42,7 @@
 			<Button
 				class="accent"
 				@click.stop="handleBackendStart"
-				:disabled="backendBusy || backendStatus === 'RUNNING'"
+				:disabled="backendBusy || backendStatus !== 'STOPPED'"
 				key="backend-start"
 			>
 				<span class="lg">启动</span>

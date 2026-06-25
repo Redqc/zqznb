@@ -57,6 +57,9 @@ async def apply_ws_control(message: dict[str, Any]) -> None:
         if message.get("navigatorAlgorithm"):
             configure_navigator_algorithm(str(message["navigatorAlgorithm"]))
         simulation.ensure_demo_vehicles()
+        if blackboard.system_status == "PAUSED":
+            blackboard.set_system_status("RUNNING")
+            return
         blackboard.reset_perception_map_locked(reveal_obstacles=False)
         simulation.tick = 0
         simulation.movement_steps = 0
